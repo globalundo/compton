@@ -656,6 +656,8 @@ typedef struct _options_t {
   bool shadow_ignore_shaped;
   /// Whether to respect _COMPTON_SHADOW.
   bool respect_prop_shadow;
+  /// Shadow opacity for inactive windows.
+  double inactive_shadow_opacity;
   /// Whether to crop shadow to the very Xinerama screen.
   bool xinerama_shadow_crop;
 

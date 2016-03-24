@@ -1182,10 +1182,18 @@ paint_preprocess(session_t *ps, win *list) {
       }
 
       // Calculate shadow opacity
-      if (w->frame_opacity)
-        w->shadow_opacity = ps->o.shadow_opacity * w->frame_opacity;
-      else
-        w->shadow_opacity = ps->o.shadow_opacity * get_opacity_percent(w);
+      // if (w->frame_opacity)
+      //   w->shadow_opacity = ps->o.shadow_opacity * w->frame_opacity;
+      // else
+      //   w->shadow_opacity = ps->o.shadow_opacity * get_opacity_percent(w);
+
+      {
+        double shadow_opacity = (w->focused ? ps->o.shadow_opacity: ps->o.inactive_shadow_opacity);
+        if (w->frame_opacity)
+          w->shadow_opacity = shadow_opacity * w->frame_opacity;
+        else
+          w->shadow_opacity = shadow_opacity * get_opacity_percent(w);
+      }
     }
 
     // Add window to damaged area if its painting status changes
@@ -5040,7 +5048,7 @@ parse_matrix(session_t *ps, const char *src, const char **endptr) {
   int wid = 0, hei = 0;
   const char *pc = NULL;
   XFixed *matrix = NULL;
-  
+
   // Get matrix width and height
   {
     double val = 0.0;
@@ -5586,6 +5594,9 @@ parse_config(session_t *ps, struct options_tmp *pcfgtmp) {
   // --unredir-if-possible
   lcfg_lookup_bool(&cfg, "unredir-if-possible",
       &ps->o.unredir_if_possible);
+  // --inactive-shadow-opacity
+  config_lookup_float(&cfg, "inactive-shadow-opacity", &ps->o.inactive_shadow_opacity);
+    // ps->o.inactive-shadow-opacity = fval;
   // --unredir-if-possible-delay
   if (lcfg_lookup_int(&cfg, "unredir-if-possible-delay", &ival))
     ps->o.unredir_if_possible_delay = ival;
@@ -5714,6 +5725,7 @@ get_cfg(session_t *ps, int argc, char *const *argv, bool first_pass) {
     { "use-ewmh-active-win", no_argument, NULL, 276 },
     { "respect-prop-shadow", no_argument, NULL, 277 },
     { "unredir-if-possible", no_argument, NULL, 278 },
+    { "inactive-shadow-opacity", required_argument, NULL, 14352 },
     { "focus-exclude", required_argument, NULL, 279 },
     { "inactive-dim-fixed", no_argument, NULL, 280 },
     { "detect-transient", no_argument, NULL, 281 },
@@ -5869,6 +5881,12 @@ get_cfg(session_t *ps, int argc, char *const *argv, bool first_pass) {
       P_CASELONG('r', shadow_radius);
       case 'o':
         ps->o.shadow_opacity = atof(optarg);
+        break;
+      // P_CASELONG(14352, inactive_shadow_opacity);
+      case 14352:
+        ps->o.inactive_shadow_opacity = normalize_d(atof(optarg));
+        if (!ps->o.inactive_shadow_opacity)
+          ps->o.inactive_shadow_opacity = ps->o.shadow_opacity;
         break;
       P_CASELONG('l', shadow_offset_x);
       P_CASELONG('t', shadow_offset_y);
@@ -6082,7 +6100,8 @@ get_cfg(session_t *ps, int argc, char *const *argv, bool first_pass) {
   // Other variables determined by options
 
   // Determine whether we need to track focus changes
-  if (ps->o.inactive_opacity || ps->o.active_opacity || ps->o.inactive_dim) {
+  // if (ps->o.inactive_opacity || ps->o.active_opacity || ps->o.inactive_dim) {
+  if (ps->o.inactive_opacity || ps->o.active_opacity || ps->o.inactive_dim || ps->o.shadow_opacity != ps->o.inactive_shadow_opacity) {
     ps->o.track_focus = true;
   }
 
@@ -7009,6 +7028,7 @@ session_init(session_t *ps_old, int argc, char **argv) {
       .shadow_blacklist = NULL,
       .shadow_ignore_shaped = false,
       .respect_prop_shadow = false,
+      .inactive_shadow_opacity = 0.0,
       .xinerama_shadow_crop = false,
 
       .wintype_fade = { false },
